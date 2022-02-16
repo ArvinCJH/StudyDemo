@@ -1,0 +1,8 @@
+//
+// Created by Administrator on 2022/2/16.
+//
+
+#ifndef MYSTUDYAPPLICATION_SAFE_QUEUE_H
+#define MYSTUDYAPPLICATION_SAFE_QUEUE_H
+
+#endif //MYSTUDYAPPLICATION_SAFE_QUEUE_H

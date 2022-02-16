@@ -1,0 +1,14 @@
+//
+// Created by Administrator on 2022/2/16.
+//
+
+#ifndef MYSTUDYAPPLICATION_BASECHANNEL_H
+#define MYSTUDYAPPLICATION_BASECHANNEL_H
+
+
+class BaseChannel {
+
+};
+
+
+#endif //MYSTUDYAPPLICATION_BASECHANNEL_H

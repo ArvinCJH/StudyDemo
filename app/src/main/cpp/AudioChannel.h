@@ -1,0 +1,14 @@
+//
+// Created by Administrator on 2022/2/16.
+//
+
+#ifndef MYSTUDYAPPLICATION_AUDIOCHANNEL_H
+#define MYSTUDYAPPLICATION_AUDIOCHANNEL_H
+
+
+class AudioChannel {
+
+};
+
+
+#endif //MYSTUDYAPPLICATION_AUDIOCHANNEL_H

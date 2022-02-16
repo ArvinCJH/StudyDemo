@@ -1,0 +1,8 @@
+//
+// Created by Administrator on 2022/2/16.
+//
+
+#ifndef MYSTUDYAPPLICATION_UTIL_H
+#define MYSTUDYAPPLICATION_UTIL_H
+
+#endif //MYSTUDYAPPLICATION_UTIL_H

@@ -1,0 +1,8 @@
+//
+// Created by Administrator on 2022/2/16.
+//
+
+#ifndef MYSTUDYAPPLICATION_LOG4C_H
+#define MYSTUDYAPPLICATION_LOG4C_H
+
+#endif //MYSTUDYAPPLICATION_LOG4C_H

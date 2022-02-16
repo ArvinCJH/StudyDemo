@@ -1,0 +1,14 @@
+//
+// Created by Administrator on 2022/2/16.
+//
+
+#ifndef MYSTUDYAPPLICATION_VIDEOCHANNEL_H
+#define MYSTUDYAPPLICATION_VIDEOCHANNEL_H
+
+
+class VideoChannel {
+
+};
+
+
+#endif //MYSTUDYAPPLICATION_VIDEOCHANNEL_H
