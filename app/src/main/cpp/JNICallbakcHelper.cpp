@@ -1,0 +1,37 @@
+//
+// Created by Administrator on 2022/2/17.
+//
+#include "JNICallbakcHelper.h"
+
+
+
+JNICallbakcHelper::JNICallbakcHelper(JavaVM *vm, JNIEnv *env, jobject jobj) {
+    this->vm = vm ;
+    this->env = env ;
+    //   jobject 不能跨越线程，不能跨越函数，必须全局引用 所以不能使用  this->jobj = jobj ;
+    this->jobj = env->NewGlobalRef(jobj) ;   // 需要使用全局引用
+    jclass clazz = env->GetObjectClass(jobj) ;
+    //  使用映射的方式, 拿取 java 层的对应方法
+    jmd_prepared = env->GetMethodID(clazz, "onPrepared", "()V") ;
+}
+
+JNICallbakcHelper::~JNICallbakcHelper() {
+    vm = 0;
+    env->DeleteGlobalRef(jobj);
+    jobj = 0;
+    env = 0;
+}
+
+void JNICallbakcHelper::onPrepared(int thread_mode) {
+    if(thread_mode == THREAD_MAIN){
+        // 主线程
+        env->CallVoidMethod(jobj, jmd_prepared);
+    }else if (thread_mode == THREAD_CHILD) {
+        //  子线程 env也不可以跨线程 需要一个全新的env
+        JNIEnv * env_child;
+        vm->AttachCurrentThread(&env_child,0) ;
+        env_child->CallVoidMethod(jobj, jmd_prepared) ;
+        vm->DetachCurrentThread() ;
+
+    }
+}

@@ -73,13 +73,13 @@ public class FFmpegPlayer {
 
 
     //region native 函数区域
-    native void prepareNative(String dataSource);
+    private native void prepareNative(String dataSource);
 
-    native void startNative();
+    private native void startNative();
 
-    native void stopNative();
+    private native void stopNative();
 
-    native void releaseNative();
+    private native void releaseNative();
     //endregion
 
 }

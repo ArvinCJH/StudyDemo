@@ -1,7 +1,6 @@
 #include <jni.h>
 #include <string>
-#include "FfmpegPlayer.h"
-#include "JNICallbakcHelper.h"
+#include "FFmpegPlayer.h"
 
 
 extern "C" {
@@ -18,18 +17,22 @@ Java_top_newjourney_video_FFmpegPlayer_stringFromJNI(
     return env->NewStringUTF(info.c_str());
 }
 
-FfmpegPlayer *player = 0;
+FFmpegPlayer *player = 0;
 JavaVM *vm = 0;
-
+jint JNI_OnLoad(JavaVM * vm, void * args) {
+    ::vm = vm;
+    return JNI_VERSION_1_6;
+}
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_top_newjourney_video_FFmpegPlayer_prepareNative(JNIEnv *env, jobject thiz,
                                                      jstring data_source) {
-    const char* _data_source = env.GetStringUTFChars(data_source, 0) ;
-    player = new FfmpegPlayer() ;
-    player.prepare() ;
-    env.ReleaseStringUTFChars(data_source, _data_source) ;
+    const char* _data_source = env->GetStringUTFChars(data_source, 0) ;
+    auto *helper = new JNICallbakcHelper(vm, env, thiz) ;
+    player = new FFmpegPlayer(_data_source, helper) ;
+    player->prepare() ;
+    env->ReleaseStringUTFChars(data_source, _data_source) ;
 
 }
 

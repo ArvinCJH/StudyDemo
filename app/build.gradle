@@ -19,6 +19,7 @@ android {
                 abiFilters "arm64-v8a"
             }
         }
+        //  因为手机是此 CPU 架构, 开发时为了减少包的体积, 只编译它
         ndk {
             abiFilters "arm64-v8a"
         }
@@ -37,7 +38,7 @@ android {
     externalNativeBuild {
         cmake {
             path file('src/main/cpp/CMakeLists.txt')
-//            version '3.18.1'
+//            version '3.18.2'
             version '3.10.2'
         }
     }
