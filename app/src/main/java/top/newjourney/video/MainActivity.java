@@ -47,6 +47,11 @@ public class MainActivity extends AppCompatActivity {
 
                 tvState.setText("onPreapared---------finish--------");
             }
+
+            @Override
+            public void onError(int errorCode) {
+
+            }
         });
         tvState.setText(videoPlayer.stringFromJNI());
         checkPermission();

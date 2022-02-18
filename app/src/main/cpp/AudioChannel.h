@@ -5,8 +5,16 @@
 #ifndef MYSTUDYAPPLICATION_AUDIOCHANNEL_H
 #define MYSTUDYAPPLICATION_AUDIOCHANNEL_H
 
+#include "BaseChannel.h"
 
-class AudioChannel {
+class AudioChannel:public BaseChannel {
+private:
+
+
+public:
+    AudioChannel(int stream_index, AVCodecContext *codecContext);
+
+    virtual ~AudioChannel();
 
 };
 

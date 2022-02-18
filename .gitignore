@@ -91,3 +91,5 @@ lint/tmp/
 .git/
 androidTest/
 test/
+gradle-wrapper.properties
+build.gradle

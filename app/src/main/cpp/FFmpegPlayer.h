@@ -17,6 +17,7 @@
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/error.h>
 };
 
 class FFmpegPlayer {
@@ -28,6 +29,7 @@ private:
     AudioChannel *audio_channel = 0;
     VideoChannel *video_channel = 0;
     JNICallbakcHelper *helper = 0;
+    bool isPlaying = 0 ;
 
 public:
     FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper);

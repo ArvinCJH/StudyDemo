@@ -14,6 +14,7 @@ private:
     JNIEnv *env = 0;
     jobject jobj;
     jmethodID jmd_prepared;
+    jmethodID jmd_error;
 
 public:
     JNICallbakcHelper(JavaVM *vm, JNIEnv *env, jobject jobj);
@@ -21,6 +22,7 @@ public:
     ~JNICallbakcHelper();
 
     void onPrepared(int i);
+    void onError(int i, int error_code);
 };
 
 

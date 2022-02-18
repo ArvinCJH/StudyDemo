@@ -13,6 +13,7 @@ JNICallbakcHelper::JNICallbakcHelper(JavaVM *vm, JNIEnv *env, jobject jobj) {
     jclass clazz = env->GetObjectClass(jobj) ;
     //  使用映射的方式, 拿取 java 层的对应方法
     jmd_prepared = env->GetMethodID(clazz, "onPrepared", "()V") ;
+    jmd_error = env->GetMethodID(clazz, "onError", "(I)V") ;
 }
 
 JNICallbakcHelper::~JNICallbakcHelper() {
@@ -32,6 +33,19 @@ void JNICallbakcHelper::onPrepared(int thread_mode) {
         vm->AttachCurrentThread(&env_child,0) ;
         env_child->CallVoidMethod(jobj, jmd_prepared) ;
         vm->DetachCurrentThread() ;
+    }
+}
 
+//  返回错误码到上层
+void JNICallbakcHelper::onError(int thread_mode, int error_code) {
+    if(thread_mode == THREAD_MAIN){
+        // 主线程
+        env->CallVoidMethod(jobj, jmd_error, error_code);
+    }else if (thread_mode == THREAD_CHILD) {
+        //  子线程 env也不可以跨线程 需要一个全新的env
+        JNIEnv * env_child;
+        vm->AttachCurrentThread(&env_child,0) ;
+        env_child->CallVoidMethod(jobj, jmd_error, error_code) ;
+        vm->DetachCurrentThread() ;
     }
 }

@@ -60,16 +60,23 @@ public class FFmpegPlayer {
     /**
      * 给jni反射调用的
      */
-    public void onPrepared() {
+    private void onPrepared() {
         if (null != onPreparedListener) {
             onPreparedListener.onPreapared();
         }
     }
 
-    interface OnPreparedListener {
-        void onPreapared();
+    /**
+     * 给jni反射调用的
+     */
+    private void onError(int errorCode) {
+        onPreparedListener.onError(errorCode);
     }
 
+    interface OnPreparedListener {
+        void onPreapared();
+        void onError(int errorCode) ;
+    }
 
 
     //region native 函数区域
