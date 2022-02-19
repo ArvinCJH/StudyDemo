@@ -4,7 +4,6 @@
 
 #include "FFmpegPlayer.h"
 
-
 FFmpegPlayer::FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper) {
 
     //  strlen 返回的长度不包括 '\0' 这个结束符， 所以需要一个占位符
@@ -21,7 +20,14 @@ FFmpegPlayer::~FFmpegPlayer() {
     if (helper) {
         delete helper;
     }
+}
 
+
+//  错误码基本都是子线程返回
+void FFmpegPlayer::onError(int error_code) {
+    if (helper) {
+        helper->onError(THREAD_CHILD, error_code);
+    }
 }
 
 //  文件检测准备的子线程
@@ -30,7 +36,7 @@ void *task_prepare(void *args) {
     auto *player = static_cast<FFmpegPlayer *> (args);
     player->prepare_();
     //  子线程方法结束加上 return 0 ;
-    return 0;
+    return nullptr;
 }
 
 //  文件开始播放的子线程
@@ -39,7 +45,7 @@ void *task_start(void *args) {
     auto *player = static_cast<FFmpegPlayer *> (args);
     player->start_();
     //  子线程方法结束加上 return 0 ;
-    return 0;
+    return nullptr;
 }
 
 void FFmpegPlayer::prepare() {
@@ -52,10 +58,10 @@ void FFmpegPlayer::start() {
     isPlaying = 1;
 
     if (video_channel) {
-        video_channel.start();
+        video_channel->start();
     }
     if (audio_channel) {
-        audio_channel.start();
+        audio_channel->start();
     }
 
     // 创建子线程
@@ -193,16 +199,16 @@ void FFmpegPlayer::start_() {
         //  return 0 if OK, < 0 on error or end of file. On error, pkt will be blank
         //        (as if it came from av_packet_alloc()).
         int resultCode = av_read_frame(formatContext, packet);
-        if (!ret) {
+        if (!resultCode) {
             //  成功的情况, 拿到包了, 把包分类, 然后丢进队列里面去
-            if (video_channel && video_channel->steam_index == packet->steam_index) {
+            if (video_channel && video_channel->stream_index == packet->stream_index) {
                 //  视频包, 丢进队列里面去
-            } else if (audio_channel && audio_channel->steam_index == packet->steam_index) {
+            } else if (audio_channel && audio_channel->stream_index == packet->stream_index) {
                 //  音频包, 丢进队列里面去
             }
 
 
-        } else if (ret == AVERROR_EOF) {
+        } else if (resultCode == AVERROR_EOF) {
             //  读到文件末尾了
             break;
         } else {
@@ -211,15 +217,10 @@ void FFmpegPlayer::start_() {
         }
     }
 
-    isPlaying = 0;
+    isPlaying = false;
     video_channel->stop();
     audio_channel->stop();
 
 }
 
-//  错误码基本都是子线程返回
-void onError(int error_code) {
-    if (helper) {
-        helper->onError((THREAD_CHILD, error_code)
-    }
-}
+

@@ -31,6 +31,8 @@ private:
     JNICallbakcHelper *helper = 0;
     bool isPlaying = 0 ;
 
+    void onError(int error_code) ;
+
 public:
     FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper);
 

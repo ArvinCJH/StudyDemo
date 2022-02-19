@@ -4,15 +4,19 @@
 
 #include "AudioChannel.h"
 
-void BaseChannel::start() {
-    isPlaying = 1;
+void AudioChannel::start() {
+    isPlaying = true;
 }
 
-void BaseChannel::stop() {
-    isPlaying = 0;
+void AudioChannel::stop() {
+    isPlaying = false;
 }
 
 AudioChannel::AudioChannel(int stream_index, AVCodecContext *codecContext) :
         BaseChannel(stream_index, codecContext) {
+
+}
+
+AudioChannel::~AudioChannel() {
 
 }

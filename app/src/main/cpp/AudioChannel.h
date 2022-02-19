@@ -14,8 +14,11 @@ private:
 public:
     AudioChannel(int stream_index, AVCodecContext *codecContext);
 
-    virtual ~AudioChannel();
+    ~AudioChannel();
 
+    void start();
+
+    void stop();
 };
 
 

@@ -20,14 +20,18 @@ private:
     pthread_t pid_video_play;
 
 public:
-    VideoChannel(int stream_index, AVCodecContext *codecContext) :
-            BaseChannel(stream_index, codecContext);
+    VideoChannel(int stream_index, AVCodecContext *codecContext);
 
-    virtual ~VideoChannel();
+    ~VideoChannel();
 
+    //  线程使用, 需要用 publish
     void video_decode();
 
     void video_play();
+
+    void start();
+
+    void stop();
 };
 
 

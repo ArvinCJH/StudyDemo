@@ -52,7 +52,7 @@ public:
             //  工作状态
             queue.push(value);
             // 每次入队后要唤醒阻塞
-            phread_cond_signal(&cond);
+            pthread_cond_signal(&cond);
         } else {
             //  如果未设置工作状态, 直接丢包
             if (releaseCallback) {
@@ -91,7 +91,7 @@ public:
         pthread_mutex_lock(&mutex);
         this->work = work;
         // 每次设置状态后，唤醒阻塞
-        phread_cond_signal(&cond);
+        pthread_cond_signal(&cond);
         //  多线程访问, 解锁
         pthread_mutex_unlock(&mutex);
     }
@@ -120,8 +120,8 @@ public:
      * 设置此函数指针的回调，让外界去释放
      * @param releaseCallback
      */
-    void setReleaseCallback(ReleaseCallback *releaseCallback) {
-        this.releaseCallback = releaseCallback;
+    void setReleaseCallback(ReleaseCallback releaseCallback) {
+        this->releaseCallback = releaseCallback;
     }
 };
 
