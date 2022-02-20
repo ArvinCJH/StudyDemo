@@ -33,6 +33,10 @@ private:
 
     void onError(int error_code) ;
 
+
+    RenderCallback renderCallback;
+
+
 public:
     FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper);
 
@@ -46,6 +50,7 @@ public:
 
     void start_();
 
+    void setRenderCallback(RenderCallback renderCallback) ;
 };
 
 

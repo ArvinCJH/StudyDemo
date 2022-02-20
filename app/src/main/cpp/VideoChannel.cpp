@@ -12,30 +12,30 @@ VideoChannel::VideoChannel(int stream_index, AVCodecContext *codecContext) :
 VideoChannel::~VideoChannel() {
 
 }
-void *task_video_decode(void  *args){
-    auto *video_channel = static_cast<VideoChannel *>(args) ;
-    video_channel->video_decode() ;
-    return nullptr ;
+
+void *task_video_decode(void *args) {
+    auto *video_channel = static_cast<VideoChannel *>(args);
+    video_channel->video_decode();
+    return nullptr;
 }
 
-void *task_video_paly(void  *args){
-    auto *video_channel = static_cast<VideoChannel*>(args) ;
-    video_channel->video_play() ;
-    return nullptr ;
+void *task_video_paly(void *args) {
+    auto *video_channel = static_cast<VideoChannel *>(args);
+    video_channel->video_play();
+    return nullptr;
 }
 
 void VideoChannel::start() {
     isPlaying = true;
 
-    packets.setWork(1) ;
-    frames.setWork(1) ;
+    packets.setWork(1);
+    frames.setWork(1);
 
     //  需要开启两个线程, 一个用于获取压缩包, 一个用于处理原始包并播放
     //  1.  开启取出压缩包线程
-    pthread_create(&pid_video_decode, nullptr, task_video_decode, this) ;
+    pthread_create(&pid_video_decode, nullptr, task_video_decode, this);
     //  2.  开启处理原始包并播放线程
-    pthread_create(&pid_video_play, nullptr, task_video_paly, this) ;
-
+    pthread_create(&pid_video_play, nullptr, task_video_paly, this);
 
 
 }
@@ -44,55 +44,62 @@ void VideoChannel::stop() {
     isPlaying = false;
 }
 
-//  解包
+// 解包
 void VideoChannel::video_decode() {
-    AVPacket *pkt = nullptr ;
-    while (isPlaying){
-        //  从队列中获取压缩包
-        int result_code = packets.getQueueAndDel(pkt) ;
-        if (!isPlaying){
-            //  检测是否在播放状态
+    AVPacket *pkt = nullptr;
+    while (isPlaying) {
+        // 从队列中获取压缩包
+        int result_code = packets.getQueueAndDel(pkt);
+        if (!isPlaying) {
+            // 检测是否在播放状态
             break;
         }
-        if (!result_code){
+        if (!result_code) {
             //  包取出失败, 继续往下走
             continue;
         }
         //  发送 pkt 到缓冲区(解码缓冲区, ffmpeg内部自带. 会复制一份副本, 所以可以当即释放)
-        result_code = avcodec_send_packet(avCodecContext, pkt) ;
-        releaseAVPacket(&pkt) ;
+        result_code = avcodec_send_packet(avCodecContext, pkt);
+        av_packet_free(&pkt);
+        releaseAVPacket(&pkt);
 
-        if (result_code){
+        if (result_code) {
             //  发送进缓冲区出现了错误
             break;
         }
 
-        //  从缓冲区获取已经解压出来的原始包
-        AVFrame *frame = av_frame_alloc() ;
-        result_code = avcodec_receive_frame(avCodecContext, frame) ;
-        if(result_code == AVERROR(EAGAIN)){
-         // 获取失败, 可能只是没有拿到需要的包, 不是重大错误, 继续进行下一次获取
+        // 从缓冲区获取已经解压出来的原始包
+        AVFrame *frame = av_frame_alloc();
+        // avcodec_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+        result_code = avcodec_receive_frame(avCodecContext, frame);
+        if (result_code == AVERROR(EAGAIN)) {
+            // 获取失败, 可能只是没有拿到需要的包, 不是重大错误, 继续进行下一次获取
             continue;
-        }        else{
-            //  获取缓冲区的原始包错误
+        } else {
+            // 获取缓冲区的原始包错误
             break;
         }
         //  拿到了原始包, 把它加入原始包队列
-        frames.insertToQueue(frame) ;
+        frames.insertToQueue(frame);
     }
-    releaseAVPacket(&pkt) ;
+    av_packet_free(&pkt);
+    releaseAVPacket(&pkt);
 
 }
 
 //  播放
 void VideoChannel::video_play() {
     //  从原始包队列中取出原始包进行播放
-    AVFrame *frame = nullptr ;
-    uint8_t *dst_data[4] ;
-    int dst_linesize[4] ;
+    AVFrame *frame = nullptr;
+    uint8_t *dst_data[4];
+    int dst_linesize[4];
 
+    // int av_image_alloc(uint8_t *pointers[4], int linesizes[4],
+    //                    int w, int h, enum AVPixelFormat pix_fmt, int align);
+    // return the size in bytes required for the image buffer, a negative
+    // error code in case of failure
     av_image_alloc(dst_data, dst_linesize, avCodecContext->width, avCodecContext->height,
-            AV_PIX_FMT_RGBA, 1) ;
+                   AV_PIX_FMT_RGBA, 1);
 
 //    struct SwsContext *sws_getContext(int srcW, int srcH, enum AVPixelFormat srcFormat,
 //                                      int dstW, int dstH, enum AVPixelFormat dstFormat,
@@ -108,27 +115,39 @@ void VideoChannel::video_play() {
             avCodecContext->width, avCodecContext->height,
             AV_PIX_FMT_RGBA,
             //  转换期间使用的算法
-            SWS_BILINEAR, nullptr, nullptr,nullptr
-            ) ;
+            SWS_BILINEAR, nullptr, nullptr, nullptr
+    );
 
-    while (isPlaying){
-        int result_code= frames.getQueueAndDel(frame) ;
-        if (!isPlaying){
+    while (isPlaying) {
+        int result_code = frames.getQueueAndDel(frame);
+        if (!isPlaying) {
             break;
         }
-        if (!result_code){
+        if (!result_code) {
             //  拿取失败, 继续下一次拿取
             continue;
         }
         //  格式转换    yuv -> rgba
         sws_scale(sws_ctx,
                 //  输出的 YUV 数据
-                frame->data, frame->linesize,
-                0, avCodecContext->height,
+                  frame->data, frame->linesize,
+                  0, avCodecContext->height,
                 //  输出参数
-                dst_data, dst_linesize
-                ) ;
-    }
+                  dst_data, dst_linesize
+        );
 
+        renderCallback(dst_data[0], avCodecContext->width, avCodecContext->height, dst_linesize[0]);
+        av_frame_free(&frame);
+        releaseAVFrame(&frame);
+    }
+    av_frame_free(&frame);
+    releaseAVFrame(&frame);
+    isPlaying = false;
+    av_free(&dst_data[0]);
+    sws_freeContext(sws_ctx);
+}
+
+void VideoChannel::setRenderCallback(RenderCallback renderCallback) {
+    this->renderCallback = renderCallback;
 }
 

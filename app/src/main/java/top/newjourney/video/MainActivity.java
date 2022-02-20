@@ -14,6 +14,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 
 import top.newjourney.video.databinding.ActivityMainBinding;
 
@@ -21,6 +23,7 @@ public class MainActivity extends AppCompatActivity {
     private FFmpegPlayer videoPlayer;
 
     private ActivityMainBinding binding;
+    private SurfaceView surfaceView ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,12 +35,12 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         // Example of a call to a native method
         TextView tvState = binding.tvState;
-        SurfaceView surfaceView = binding.surfaceView;
+        surfaceView = binding.surfaceView;
         TextView tvTime = binding.tvTime;
         SeekBar seekBar = binding.seekBar;
 
         videoPlayer = new FFmpegPlayer();
-        //  文件在手机内存里面的位置
+        videoPlayer.setSurfaceView(surfaceView);
         videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "demo.mp4")
                 .getAbsolutePath());
         videoPlayer.setOnPreparedListener(new FFmpegPlayer.OnPreparedListener() {
@@ -46,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("TAG", "onPreapared-----------------");
 
                 tvState.setText("onPreapared---------finish--------");
+                videoPlayer.start();
             }
 
             @Override
@@ -93,7 +97,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         videoPlayer.prepare();
-
     }
 
 

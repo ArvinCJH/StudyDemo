@@ -10,14 +10,19 @@
 extern "C" {
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/avutil.h>
 };
 
+//  定义一个函数指针
+typedef void (*RenderCallback)(uint8_t*, int, int , int) ;
 class VideoChannel : public BaseChannel {
 private:
     //  解码线程
     pthread_t pid_video_decode;
     //  播放线程
     pthread_t pid_video_play;
+
+    RenderCallback renderCallback;
 
 public:
     VideoChannel(int stream_index, AVCodecContext *codecContext);
@@ -32,6 +37,9 @@ public:
     void start();
 
     void stop();
+
+    //  回调给 player 处理
+    void setRenderCallback(RenderCallback renderCallback) ;
 };
 
 

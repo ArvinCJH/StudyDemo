@@ -65,7 +65,7 @@ void FFmpegPlayer::start() {
     }
 
     // 创建子线程
-    pthread_create(&pid_prepare, 0, task_start, this);
+    pthread_create(&pid_prepare, nullptr, task_start, this);
 }
 
 // 子线程函数
@@ -80,7 +80,7 @@ void FFmpegPlayer::prepare_() {
         return;
     }
 
-    AVDictionary *dictionary = 0;
+    AVDictionary *dictionary = nullptr;
 
     /* A different way of passing the options is as key/value pairs in a
      * dictionary. */
@@ -92,7 +92,7 @@ void FFmpegPlayer::prepare_() {
     //    int avformat_open_input(AVFormatContext **ps, const char *url,
     //             const AVInputFormat *fmt, AVDictionary **options);
     //    @return 0 on success, a negative AVERROR on failure.
-    resultCode = avformat_open_input(&formatContext, data_source, 0, &dictionary);
+    resultCode = avformat_open_input(&formatContext, data_source, nullptr, &dictionary);
     av_dict_free(&dictionary);
     if (resultCode) {
         //  打开媒体格式失败
@@ -105,7 +105,7 @@ void FFmpegPlayer::prepare_() {
     // 2. 查找媒体中的音/视频流的信息
     // int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
     //  return >=0 if OK, AVERROR_xxx on error
-    resultCode = avformat_find_stream_info(formatContext, 0);
+    resultCode = avformat_find_stream_info(formatContext, nullptr);
     if (resultCode < 0) {
         LOGE("查找媒体中的音/视频流的信息失败%s, ", av_err2str(resultCode));
         onError(FFMPEG_CAN_NOT_FIND_STREAMS);
@@ -153,7 +153,7 @@ void FFmpegPlayer::prepare_() {
         // int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec,
         //     AVDictionary **options);
         // return zero on success, a negative value on error
-        resultCode = avcodec_open2(avCodecContext, codec, 0);
+        resultCode = avcodec_open2(avCodecContext, codec, nullptr);
         if (resultCode) {
             onError(FFMPEG_OPEN_DECODER_FAIL);
             LOGE("打开解码器失败%s, ", av_err2str(resultCode));
@@ -168,6 +168,7 @@ void FFmpegPlayer::prepare_() {
         } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
             //  视频包
             video_channel = new VideoChannel(i, avCodecContext);
+            video_channel->setRenderCallback(renderCallback) ;
         }
     }
 
@@ -221,6 +222,10 @@ void FFmpegPlayer::start_() {
     video_channel->stop();
     audio_channel->stop();
 
+}
+
+void FFmpegPlayer::setRenderCallback(RenderCallback renderCallback) {
+this->renderCallback = renderCallback ;
 }
 
 
