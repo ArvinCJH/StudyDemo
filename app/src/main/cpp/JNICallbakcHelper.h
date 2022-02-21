@@ -21,8 +21,8 @@ public:
 
     ~JNICallbakcHelper();
 
-    void onPrepared(int i);
-    void onError(int i, int error_code);
+    void onPrepared(int thread_mode);
+    void onError(int thread_mode, int error_code);
 };
 
 

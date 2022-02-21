@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
     private FFmpegPlayer videoPlayer;
 
     private ActivityMainBinding binding;
-    private SurfaceView surfaceView ;
+    // private SurfaceView surfaceView ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         // Example of a call to a native method
         TextView tvState = binding.tvState;
-        surfaceView = binding.surfaceView;
+        SurfaceView surfaceView = binding.surfaceView;
         TextView tvTime = binding.tvTime;
         SeekBar seekBar = binding.seekBar;
 
@@ -47,14 +47,23 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPreapared() {
                 Log.d("TAG", "onPreapared-----------------");
-
-                tvState.setText("onPreapared---------finish--------");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        tvState.setText("onPreapared---------finish--------");
+                    }
+                });
                 videoPlayer.start();
             }
 
             @Override
             public void onError(int errorCode) {
-
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        tvState.setText(errorCode+"");
+                    }
+                });
             }
         });
         tvState.setText(videoPlayer.stringFromJNI());

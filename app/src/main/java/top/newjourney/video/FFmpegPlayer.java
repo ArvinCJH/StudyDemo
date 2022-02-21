@@ -117,10 +117,13 @@ public class FFmpegPlayer implements SurfaceHolder.Callback {
 
     //  开始播放
     private native void startNative();
+
     // 停止播放
     private native void stopNative();
+
     // 释放
     private native void releaseNative();
+
     // 设置播放窗口
     private native void setSurfaceNative(Surface surface);
     //endregion

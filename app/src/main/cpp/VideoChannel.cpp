@@ -19,7 +19,7 @@ void *task_video_decode(void *args) {
     return nullptr;
 }
 
-void *task_video_paly(void *args) {
+void *task_video_play(void *args) {
     auto *video_channel = static_cast<VideoChannel *>(args);
     video_channel->video_play();
     return nullptr;
@@ -35,7 +35,7 @@ void VideoChannel::start() {
     //  1.  开启取出压缩包线程
     pthread_create(&pid_video_decode, nullptr, task_video_decode, this);
     //  2.  开启处理原始包并播放线程
-    pthread_create(&pid_video_play, nullptr, task_video_paly, this);
+    pthread_create(&pid_video_play, nullptr, task_video_play, this);
 
 
 }
@@ -46,8 +46,15 @@ void VideoChannel::stop() {
 
 // 解包
 void VideoChannel::video_decode() {
+
     AVPacket *pkt = nullptr;
     while (isPlaying) {
+        //  内存泄露 -------------> AVFrame 控制队列大小
+        if (isPlaying && frames.size() > THREAD_SLEEP_COUNT) {
+            av_usleep(THREAD_SLEEP_TIME);   //  微秒
+            continue;
+        }
+
         // 从队列中获取压缩包
         int result_code = packets.getQueueAndDel(pkt);
         if (!isPlaying) {
@@ -60,11 +67,12 @@ void VideoChannel::video_decode() {
         }
         //  发送 pkt 到缓冲区(解码缓冲区, ffmpeg内部自带. 会复制一份副本, 所以可以当即释放)
         result_code = avcodec_send_packet(avCodecContext, pkt);
-        av_packet_free(&pkt);
-        releaseAVPacket(&pkt);
+
+        // releaseAVPacket(&pkt);
 
         if (result_code) {
             //  发送进缓冲区出现了错误
+            LOGE("发送进缓冲区出现了错误, %s", av_err2str(result_code)) ;
             break;
         }
 
@@ -75,14 +83,25 @@ void VideoChannel::video_decode() {
         if (result_code == AVERROR(EAGAIN)) {
             // 获取失败, 可能只是没有拿到需要的包, 不是重大错误, 继续进行下一次获取
             continue;
-        } else {
+        } else if (result_code != 0) {
+
+            //  内存泄露 -------------> 获取缓冲区的原始包错误,释放  AVFrame
+            LOGE("获取缓冲区的原始包错误,%s", av_err2str(result_code));
+            if (frame) {
+                releaseAVFrame(&frame);
+            }
             // 获取缓冲区的原始包错误
             break;
         }
         //  拿到了原始包, 把它加入原始包队列
         frames.insertToQueue(frame);
+
+        //  内存泄露 -------------> 释放 avPacket
+        av_packet_unref(pkt);
+        releaseAVPacket(&pkt);
     }
-    av_packet_free(&pkt);
+    //  内存泄露 -------------> 释放 avPacket
+    av_packet_unref(pkt);
     releaseAVPacket(&pkt);
 
 }
@@ -98,7 +117,8 @@ void VideoChannel::video_play() {
     //                    int w, int h, enum AVPixelFormat pix_fmt, int align);
     // return the size in bytes required for the image buffer, a negative
     // error code in case of failure
-    av_image_alloc(dst_data, dst_linesize, avCodecContext->width, avCodecContext->height,
+    av_image_alloc(dst_data, dst_linesize,
+                   avCodecContext->width, avCodecContext->height,
                    AV_PIX_FMT_RGBA, 1);
 
 //    struct SwsContext *sws_getContext(int srcW, int srcH, enum AVPixelFormat srcFormat,
@@ -120,6 +140,7 @@ void VideoChannel::video_play() {
 
     while (isPlaying) {
         int result_code = frames.getQueueAndDel(frame);
+
         if (!isPlaying) {
             break;
         }
@@ -135,19 +156,23 @@ void VideoChannel::video_play() {
                 //  输出参数
                   dst_data, dst_linesize
         );
-
+        LOGE("renderCallback ----------------------------------") ;
         renderCallback(dst_data[0], avCodecContext->width, avCodecContext->height, dst_linesize[0]);
-        av_frame_free(&frame);
+        LOGE("renderCallback --------------77--------------------") ;
+
+        //  内存泄露 -------------> 释放 AVFrame
+        av_frame_unref(frame);
         releaseAVFrame(&frame);
     }
-    av_frame_free(&frame);
+    //  内存泄露 -------------> 释放 AVFrame
+    av_frame_unref(frame);
     releaseAVFrame(&frame);
     isPlaying = false;
     av_free(&dst_data[0]);
     sws_freeContext(sws_ctx);
 }
 
-void VideoChannel::setRenderCallback(RenderCallback renderCallback) {
-    this->renderCallback = renderCallback;
+void VideoChannel::setRenderCallback(RenderCallback callback) {
+    this->renderCallback = callback;
 }
 

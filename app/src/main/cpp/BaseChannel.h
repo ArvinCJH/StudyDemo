@@ -6,9 +6,12 @@
 #define MYSTUDYAPPLICATION_BASECHANNEL_H
 
 #include "safe_queue.h"
+#include "log4c.h"
+#include "util.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavutil/time.h>
 }
 
 

@@ -71,6 +71,7 @@ public:
         pthread_mutex_lock(&mutex);
         while (work && empty()) {
             // 如果是工作状态 并且 队列里面没有数据，阻塞等待数据
+            pthread_cond_wait(&cond, &mutex) ;
         }
 
         if (!empty()) {

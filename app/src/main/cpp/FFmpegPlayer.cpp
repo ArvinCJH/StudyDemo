@@ -14,11 +14,14 @@ FFmpegPlayer::FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper) {
 }
 
 FFmpegPlayer::~FFmpegPlayer() {
+    isPlaying = false;
     if (data_source) {
         delete data_source;
+        data_source = nullptr;
     }
     if (helper) {
         delete helper;
+        helper = nullptr;
     }
 }
 
@@ -51,22 +54,9 @@ void *task_start(void *args) {
 void FFmpegPlayer::prepare() {
 
     // 创建子线程
-    pthread_create(&pid_prepare, 0, task_prepare, this);
+    pthread_create(&pid_prepare, nullptr, task_prepare, this);
 }
 
-void FFmpegPlayer::start() {
-    isPlaying = 1;
-
-    if (video_channel) {
-        video_channel->start();
-    }
-    if (audio_channel) {
-        audio_channel->start();
-    }
-
-    // 创建子线程
-    pthread_create(&pid_prepare, nullptr, task_start, this);
-}
 
 // 子线程函数
 void FFmpegPlayer::prepare_() {
@@ -165,10 +155,10 @@ void FFmpegPlayer::prepare_() {
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
             //  音频包
             audio_channel = new AudioChannel(i, avCodecContext);
-        } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
+        } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
             //  视频包
             video_channel = new VideoChannel(i, avCodecContext);
-            video_channel->setRenderCallback(renderCallback) ;
+            video_channel->setRenderCallback(renderCallback);
         }
     }
 
@@ -183,49 +173,85 @@ void FFmpegPlayer::prepare_() {
         helper->onPrepared(THREAD_CHILD);
     }
 
-
 }
 
 // 子线程
 void FFmpegPlayer::start_() {
     while (isPlaying) {
+        //  内存泄露 -------------> 控制 AVPacket 队列大小
+        if (video_channel && video_channel->packets.size() > THREAD_SLEEP_COUNT) {
+            av_usleep(THREAD_SLEEP_TIME);
+            continue;
+        }
+        // if(audio_channel&& audio_channel->packets.size()>100){
+        //     av_usleep(10*1000) ;
+        //     continue;
+        // }
+
         //  pkt will be blank (as if it came from av_packet_alloc())
         AVPacket *packet = av_packet_alloc();
+
         if (!packet) {
             LOGE("av_packet_alloc failer");
-            return;
+            // return;
+            continue;
         }
         //  1. 获取压缩包(可能是音频 也可能是视频)
         //  int av_read_frame(AVFormatContext *s, AVPacket *pkt);
         //  return 0 if OK, < 0 on error or end of file. On error, pkt will be blank
         //        (as if it came from av_packet_alloc()).
         int resultCode = av_read_frame(formatContext, packet);
-        if (!resultCode) {
+        if (!resultCode) {  //  resultCode == 0
             //  成功的情况, 拿到包了, 把包分类, 然后丢进队列里面去
             if (video_channel && video_channel->stream_index == packet->stream_index) {
                 //  视频包, 丢进队列里面去
+                // LOGI("insertTo video_channel Queue") ;
+                video_channel->packets.insertToQueue(packet);
             } else if (audio_channel && audio_channel->stream_index == packet->stream_index) {
                 //  音频包, 丢进队列里面去
+                // LOGD("insertTo audio_channel Queue") ;
+                audio_channel->packets.insertToQueue(packet);
             }
 
 
         } else if (resultCode == AVERROR_EOF) {
-            //  读到文件末尾了
-            break;
+            //  读到文件末尾了, 但是并不是播放完毕
+            // LOGE("读到文件末尾了") ;
+            //  内存泄露 -------------> 临时处理
+            // if(video_channel->packets.empty() && audio_channel->packets.empty()){
+            //     break;
+            // }
+            // break;
         } else {
             //  出现了其它错误，结束当前循环
+            // LOGE("出现了其它错误，结束当前循环") ;
             break;
         }
     }
 
+    LOGE("isPlaying:%d", isPlaying);
     isPlaying = false;
     video_channel->stop();
     audio_channel->stop();
 
 }
 
+void FFmpegPlayer::start() {
+    isPlaying = true;
+
+    if (video_channel) {
+        video_channel->start();
+    }
+    if (audio_channel) {
+        audio_channel->start();
+    }
+
+    // 创建子线程
+    pthread_create(&pid_start, nullptr, task_start, this);
+}
+
 void FFmpegPlayer::setRenderCallback(RenderCallback renderCallback) {
-this->renderCallback = renderCallback ;
+    this->renderCallback = renderCallback;
 }
 
 

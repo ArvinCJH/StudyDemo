@@ -14,7 +14,8 @@ extern "C" {
 };
 
 //  定义一个函数指针
-typedef void (*RenderCallback)(uint8_t*, int, int , int) ;
+typedef void (*RenderCallback)(uint8_t *, int, int, int);
+
 class VideoChannel : public BaseChannel {
 private:
     //  解码线程
@@ -29,17 +30,17 @@ public:
 
     ~VideoChannel();
 
+    void start();
+
+    void stop();
+
     //  线程使用, 需要用 publish
     void video_decode();
 
     void video_play();
 
-    void start();
-
-    void stop();
-
     //  回调给 player 处理
-    void setRenderCallback(RenderCallback renderCallback) ;
+    void setRenderCallback(RenderCallback callback);
 };
 
 

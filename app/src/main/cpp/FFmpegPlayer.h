@@ -22,17 +22,17 @@ extern "C" {
 
 class FFmpegPlayer {
 private:
-    char *data_source = 0;
+    char *data_source = nullptr;
     pthread_t pid_prepare;
+    pthread_t pid_start;
 
-    AVFormatContext *formatContext = 0;
-    AudioChannel *audio_channel = 0;
-    VideoChannel *video_channel = 0;
-    JNICallbakcHelper *helper = 0;
-    bool isPlaying = 0 ;
+    AVFormatContext *formatContext = nullptr;
+    AudioChannel *audio_channel = nullptr;
+    VideoChannel *video_channel = nullptr;
+    JNICallbakcHelper *helper = nullptr;
+    bool isPlaying;
 
     void onError(int error_code) ;
-
 
     RenderCallback renderCallback;
 

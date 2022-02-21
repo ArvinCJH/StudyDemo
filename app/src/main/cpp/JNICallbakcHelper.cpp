@@ -17,10 +17,10 @@ JNICallbakcHelper::JNICallbakcHelper(JavaVM *vm, JNIEnv *env, jobject jobj) {
 }
 
 JNICallbakcHelper::~JNICallbakcHelper() {
-    vm = 0;
+    vm = nullptr;
     env->DeleteGlobalRef(jobj);
-    jobj = 0;
-    env = 0;
+    jobj = nullptr;
+    env = nullptr;
 }
 
 void JNICallbakcHelper::onPrepared(int thread_mode) {
@@ -30,7 +30,7 @@ void JNICallbakcHelper::onPrepared(int thread_mode) {
     }else if (thread_mode == THREAD_CHILD) {
         //  子线程 env也不可以跨线程 需要一个全新的env
         JNIEnv * env_child;
-        vm->AttachCurrentThread(&env_child,0) ;
+        vm->AttachCurrentThread(&env_child,nullptr) ;
         env_child->CallVoidMethod(jobj, jmd_prepared) ;
         vm->DetachCurrentThread() ;
     }
@@ -44,7 +44,7 @@ void JNICallbakcHelper::onError(int thread_mode, int error_code) {
     }else if (thread_mode == THREAD_CHILD) {
         //  子线程 env也不可以跨线程 需要一个全新的env
         JNIEnv * env_child;
-        vm->AttachCurrentThread(&env_child,0) ;
+        vm->AttachCurrentThread(&env_child, nullptr) ;
         env_child->CallVoidMethod(jobj, jmd_error, error_code) ;
         vm->DetachCurrentThread() ;
     }
