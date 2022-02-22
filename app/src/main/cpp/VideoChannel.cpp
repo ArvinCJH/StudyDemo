@@ -156,9 +156,7 @@ void VideoChannel::video_play() {
                 //  输出参数
                   dst_data, dst_linesize
         );
-        LOGE("renderCallback ----------------------------------") ;
         renderCallback(dst_data[0], avCodecContext->width, avCodecContext->height, dst_linesize[0]);
-        LOGE("renderCallback --------------77--------------------") ;
 
         //  内存泄露 -------------> 释放 AVFrame
         av_frame_unref(frame);

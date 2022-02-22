@@ -127,6 +127,10 @@ void FFmpegPlayer::prepare_() {
             return;
         }
 
+        //  add self
+        avCodecContext->channel_layout = select_channel_layout(codec);
+        avCodecContext->sample_rate = select_sample_rate(codec);
+
         //  5. 设置解码器上下文的参数
         //  int avcodec_parameters_to_context(AVCodecContext *codec,
         //      const AVCodecParameters *par);
@@ -179,14 +183,11 @@ void FFmpegPlayer::prepare_() {
 void FFmpegPlayer::start_() {
     while (isPlaying) {
         //  内存泄露 -------------> 控制 AVPacket 队列大小
-        if (video_channel && video_channel->packets.size() > THREAD_SLEEP_COUNT) {
+        if ((video_channel && video_channel->packets.size() > THREAD_SLEEP_COUNT) ||
+            (audio_channel && audio_channel->packets.size() > THREAD_SLEEP_COUNT)) {
             av_usleep(THREAD_SLEEP_TIME);
             continue;
         }
-        // if(audio_channel&& audio_channel->packets.size()>100){
-        //     av_usleep(10*1000) ;
-        //     continue;
-        // }
 
         //  pkt will be blank (as if it came from av_packet_alloc())
         AVPacket *packet = av_packet_alloc();
@@ -255,3 +256,42 @@ void FFmpegPlayer::setRenderCallback(RenderCallback renderCallback) {
 }
 
 
+/* select layout with the highest channel count */
+uint64_t FFmpegPlayer::select_channel_layout(const AVCodec *codec) {
+    const uint64_t *p;
+    uint64_t best_ch_layout = 0;
+    int best_nb_channels = 0;
+
+    if (!codec->channel_layouts)
+        return AV_CH_LAYOUT_STEREO;
+
+    p = codec->channel_layouts;
+    while (*p) {
+        int nb_channels = av_get_channel_layout_nb_channels(*p);
+
+        if (nb_channels > best_nb_channels) {
+            best_ch_layout = *p;
+            best_nb_channels = nb_channels;
+        }
+        p++;
+    }
+    return best_ch_layout;
+}
+
+
+/* just pick the highest supported samplerate */
+uint64_t FFmpegPlayer::select_sample_rate(const AVCodec *codec) {
+    const int *p;
+    int best_samplerate = 0;
+
+    if (!codec->supported_samplerates)
+        return 44100;
+
+    p = codec->supported_samplerates;
+    while (*p) {
+        if (!best_samplerate || abs(44100 - *p) < abs(44100 - best_samplerate))
+            best_samplerate = *p;
+        p++;
+    }
+    return best_samplerate;
+}

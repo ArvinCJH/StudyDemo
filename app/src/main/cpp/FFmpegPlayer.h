@@ -35,7 +35,8 @@ private:
     void onError(int error_code) ;
 
     RenderCallback renderCallback;
-
+    uint64_t select_channel_layout(const AVCodec *codec) ;
+    uint64_t select_sample_rate(const AVCodec *codec);
 
 public:
     FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper);
