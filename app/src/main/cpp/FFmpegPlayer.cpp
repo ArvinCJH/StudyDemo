@@ -128,10 +128,11 @@ void FFmpegPlayer::prepare_() {
         }
 
         //  add self
-        avCodecContext->channel_layout = select_channel_layout(codec);
-        avCodecContext->sample_rate = select_sample_rate(codec);
+        // avCodecContext->channel_layout = select_channel_layout(codec);
+        // avCodecContext->sample_rate = select_sample_rate(codec);
 
         //  5. 设置解码器上下文的参数
+
         //  int avcodec_parameters_to_context(AVCodecContext *codec,
         //      const AVCodecParameters *par);
         //  return >= 0 on success, a negative AVERROR code on failure.
@@ -155,13 +156,22 @@ void FFmpegPlayer::prepare_() {
             return;
         }
 
+        AVRational time_base = stream->time_base;
+
         //  从媒体中读取音/视频包, 编解码的时候都需要 AVCodecContext
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
             //  音频包
-            audio_channel = new AudioChannel(i, avCodecContext);
+            audio_channel = new AudioChannel(i, avCodecContext, time_base);
         } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
+            if (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) {
+                continue;
+            }
+
+            AVRational fps_rational = stream->avg_frame_rate;
+            int fps = av_q2d(fps_rational);
+
             //  视频包
-            video_channel = new VideoChannel(i, avCodecContext);
+            video_channel = new VideoChannel(i, avCodecContext, time_base, fps);
             video_channel->setRenderCallback(renderCallback);
         }
     }
@@ -241,6 +251,7 @@ void FFmpegPlayer::start() {
     isPlaying = true;
 
     if (video_channel) {
+        video_channel->setAudioChannel(audio_channel);
         video_channel->start();
     }
     if (audio_channel) {
@@ -256,42 +267,42 @@ void FFmpegPlayer::setRenderCallback(RenderCallback renderCallback) {
 }
 
 
-/* select layout with the highest channel count */
-uint64_t FFmpegPlayer::select_channel_layout(const AVCodec *codec) {
-    const uint64_t *p;
-    uint64_t best_ch_layout = 0;
-    int best_nb_channels = 0;
-
-    if (!codec->channel_layouts)
-        return AV_CH_LAYOUT_STEREO;
-
-    p = codec->channel_layouts;
-    while (*p) {
-        int nb_channels = av_get_channel_layout_nb_channels(*p);
-
-        if (nb_channels > best_nb_channels) {
-            best_ch_layout = *p;
-            best_nb_channels = nb_channels;
-        }
-        p++;
-    }
-    return best_ch_layout;
-}
-
-
-/* just pick the highest supported samplerate */
-uint64_t FFmpegPlayer::select_sample_rate(const AVCodec *codec) {
-    const int *p;
-    int best_samplerate = 0;
-
-    if (!codec->supported_samplerates)
-        return 44100;
-
-    p = codec->supported_samplerates;
-    while (*p) {
-        if (!best_samplerate || abs(44100 - *p) < abs(44100 - best_samplerate))
-            best_samplerate = *p;
-        p++;
-    }
-    return best_samplerate;
-}
+// /* select layout with the highest channel count */
+// uint64_t FFmpegPlayer::select_channel_layout(const AVCodec *codec) {
+//     const uint64_t *p;
+//     uint64_t best_ch_layout = 0;
+//     int best_nb_channels = 0;
+//
+//     if (!codec->channel_layouts)
+//         return AV_CH_LAYOUT_STEREO;
+//
+//     p = codec->channel_layouts;
+//     while (*p) {
+//         int nb_channels = av_get_channel_layout_nb_channels(*p);
+//
+//         if (nb_channels > best_nb_channels) {
+//             best_ch_layout = *p;
+//             best_nb_channels = nb_channels;
+//         }
+//         p++;
+//     }
+//     return best_ch_layout;
+// }
+//
+//
+// /* just pick the highest supported samplerate */
+// uint64_t FFmpegPlayer::select_sample_rate(const AVCodec *codec) {
+//     const int *p;
+//     int best_samplerate = 0;
+//
+//     if (!codec->supported_samplerates)
+//         return 44100;
+//
+//     p = codec->supported_samplerates;
+//     while (*p) {
+//         if (!best_samplerate || abs(44100 - *p) < abs(44100 - best_samplerate))
+//             best_samplerate = *p;
+//         p++;
+//     }
+//     return best_samplerate;
+// }

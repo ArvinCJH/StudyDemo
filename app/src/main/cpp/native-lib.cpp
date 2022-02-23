@@ -24,6 +24,7 @@ FFmpegPlayer *player = nullptr;
 JavaVM *vm = nullptr;
 ANativeWindow *window = nullptr;
 ANativeWindow_Buffer window_buffer;
+// 静态初始化锁
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 jint JNI_OnLoad(JavaVM *vm, void *args) {

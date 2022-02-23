@@ -18,6 +18,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
+#include <libavutil/time.h>
 };
 
 class FFmpegPlayer {
@@ -35,8 +36,8 @@ private:
     void onError(int error_code) ;
 
     RenderCallback renderCallback;
-    uint64_t select_channel_layout(const AVCodec *codec) ;
-    uint64_t select_sample_rate(const AVCodec *codec);
+    // uint64_t select_channel_layout(const AVCodec *codec) ;  //  获取最大 channel
+    // uint64_t select_sample_rate(const AVCodec *codec);      //  获取最大 rate
 
 public:
     FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper);

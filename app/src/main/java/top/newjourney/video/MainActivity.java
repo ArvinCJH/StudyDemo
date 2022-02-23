@@ -41,7 +41,8 @@ public class MainActivity extends AppCompatActivity {
 
         videoPlayer = new FFmpegPlayer();
         videoPlayer.setSurfaceView(surfaceView);
-        videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "demo.mp4")
+        videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "chengdu.mp4")
+        // videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "demo.mp4")
                 .getAbsolutePath());
         videoPlayer.setOnPreparedListener(new FFmpegPlayer.OnPreparedListener() {
             @Override

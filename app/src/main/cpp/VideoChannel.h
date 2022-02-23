@@ -6,6 +6,7 @@
 #define MYSTUDYAPPLICATION_VIDEOCHANNEL_H
 
 #include "BaseChannel.h"
+#include "AudioChannel.h"
 
 extern "C" {
 #include <libswscale/swscale.h>
@@ -25,8 +26,11 @@ private:
 
     RenderCallback renderCallback;
 
+    int fps ;
+    AudioChannel *audio_channel = nullptr ;
+
 public:
-    VideoChannel(int stream_index, AVCodecContext *codecContext);
+    VideoChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base, int fps);
 
     ~VideoChannel();
 
@@ -41,6 +45,9 @@ public:
 
     //  回调给 player 处理
     void setRenderCallback(RenderCallback callback);
+
+    void setAudioChannel(AudioChannel *audio_channel) ;
+
 };
 
 

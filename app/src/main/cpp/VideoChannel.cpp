@@ -4,9 +4,44 @@
 
 #include "VideoChannel.h"
 
-VideoChannel::VideoChannel(int stream_index, AVCodecContext *codecContext) :
-        BaseChannel(stream_index, codecContext) {
 
+void dropAVFrame(queue<AVFrame *> &q) {
+    if (!q.empty()) {
+        // LOGI("dropAVFrame:%d", q.size());
+        AVFrame *frame = q.front();
+        // if (AV_PKT_FLAG_KEY != frame->flags) {
+        av_frame_unref(frame);
+        BaseChannel::releaseAVFrame(&frame);
+        q.pop();
+        // }
+        // else{
+        //     //  如果是关键帧, 不丢此包
+        //     break;
+        // }
+    }
+}
+
+void dropAVPacket(queue<AVPacket *> &q) {
+    while (!q.empty()) {
+        LOGI("dropAVPacket:%d", q.size());
+        AVPacket *pkt = q.front();
+        if (AV_PKT_FLAG_KEY != pkt->flags) {
+            av_packet_unref(pkt);
+            BaseChannel::releaseAVPacket(&pkt);
+            q.pop();
+        } else {
+            //  如果是关键帧, 不丢此包
+            break;
+        }
+    }
+}
+
+
+VideoChannel::VideoChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base,
+                           int fps) :
+        BaseChannel(stream_index, codecContext, time_base), fps(fps) {
+    frames.setSyncCallback(dropAVFrame);
+    packets.setSyncCallback(dropAVPacket);
 }
 
 VideoChannel::~VideoChannel() {
@@ -72,7 +107,7 @@ void VideoChannel::video_decode() {
 
         if (result_code) {
             //  发送进缓冲区出现了错误
-            LOGE("发送进缓冲区出现了错误, %s", av_err2str(result_code)) ;
+            LOGE("发送进缓冲区出现了错误, %s", av_err2str(result_code));
             break;
         }
 
@@ -137,15 +172,22 @@ void VideoChannel::video_play() {
             //  转换期间使用的算法
             SWS_BILINEAR, nullptr, nullptr, nullptr
     );
-
+    int result_code = 0;
+    double extra_delay = 0;
+    double fps_delay = 0;
+    double real_delay = 0;
+    double video_time = 0;
+    double audio_time = 0;
+    double time_diff = 0;
     while (isPlaying) {
-        int result_code = frames.getQueueAndDel(frame);
+        result_code = frames.getQueueAndDel(frame);
 
         if (!isPlaying) {
             break;
         }
         if (!result_code) {
             //  拿取失败, 继续下一次拿取
+            LOGI("拿取失败, 继续下一次拿取");
             continue;
         }
         //  格式转换    yuv -> rgba
@@ -156,6 +198,36 @@ void VideoChannel::video_play() {
                 //  输出参数
                   dst_data, dst_linesize
         );
+        // 音视频同步
+        double extra_delay = frame->repeat_pict / (2 * fps);
+        double fps_delay = 1.0 / fps;
+        double real_delay = extra_delay + fps_delay;
+
+        double video_time = frame->best_effort_timestamp * av_q2d(time_base);
+
+        // LOGI("video_time2:%d", video_time) ;
+        double audio_time = audio_channel->audio_time;
+
+        //  差值
+        double time_diff = video_time - audio_time;
+        if (time_diff > 0) {
+            if (time_diff > 1) {
+                av_usleep(real_delay * 2 * 1000000);
+            } else {
+                av_usleep((real_delay + time_diff) * 1000000);
+            }
+        } else if (time_diff < 0) {
+            if (fabs(time_diff) <= 0.05) {
+                // LOGI("continue=========frames.sync(),%d, %d", video_time, audio_time);e
+                frames.sync();
+                continue;
+            }
+        } else {
+            LOGI("百分百同步了, impossibility!!!");
+        }
+
+        LOGI("continue=========video_time:%d, audio_time:%d, time_diff:%d", video_time, audio_time, time_diff);
+
         renderCallback(dst_data[0], avCodecContext->width, avCodecContext->height, dst_linesize[0]);
 
         //  内存泄露 -------------> 释放 AVFrame
@@ -170,7 +242,12 @@ void VideoChannel::video_play() {
     sws_freeContext(sws_ctx);
 }
 
+
 void VideoChannel::setRenderCallback(RenderCallback callback) {
     this->renderCallback = callback;
+}
+
+void VideoChannel::setAudioChannel(AudioChannel *audio_channel) {
+    this->audio_channel = audio_channel;
 }
 

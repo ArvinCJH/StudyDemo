@@ -30,8 +30,8 @@ void AudioChannel::stop() {
     isPlaying = false;
 }
 
-AudioChannel::AudioChannel(int stream_index, AVCodecContext *codecContext) :
-        BaseChannel(stream_index, codecContext) {
+AudioChannel::AudioChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base) :
+        BaseChannel(stream_index, codecContext, time_base) {
 
     out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
     out_sample_size = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
@@ -50,7 +50,7 @@ AudioChannel::AudioChannel(int stream_index, AVCodecContext *codecContext) :
               int in_sample_rate,
               int log_offset, void *log_ctx);*/
     swr_ctx = swr_alloc_set_opts(nullptr,
-                                 out_channels, AV_SAMPLE_FMT_S16, out_sample_rate,
+                                 AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, out_sample_rate,
                                  avCodecContext->channel_layout, avCodecContext->sample_fmt,
                                  avCodecContext->sample_rate,
                                  0, nullptr
@@ -100,7 +100,6 @@ void AudioChannel::audio_decode() {
 
         av_packet_unref(pkt);
         releaseAVPacket(&pkt);
-
 
     }
 
@@ -248,6 +247,10 @@ int AudioChannel::getPCM() {
                 &out_buffers, dst_nb_samples,
                 (const uint8_t **) frame->data, frame->nb_samples);
         pcm_data_size = samples_per_channel * out_sample_size * out_channels;
+
+        audio_time = frame->best_effort_timestamp;
+        // LOGI("audio_time1:%d", audio_time) ;
+        // LOGI("audio_time:%d, best_effort_timestamp:%d", audio_time, frame->best_effort_timestamp ) ;
         break;
 
     }
@@ -256,3 +259,8 @@ int AudioChannel::getPCM() {
 
     return pcm_data_size;
 }
+
+// double* AudioChannel::getDoubleTime() {
+//     // LOGI("audio_time:%d", audio_time) ;
+//     return audio_time;
+// }
