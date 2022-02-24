@@ -8,6 +8,7 @@
 #include "safe_queue.h"
 #include "log4c.h"
 #include "util.h"
+#include "JNICallbakcHelper.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -29,7 +30,15 @@ public:
 
     AVRational time_base ;      //  音视频同步(时间单位)
 
-    AVCodecContext *avCodecContext = 0;    // 音频 视频 都需要的 解码器上下文
+    AVCodecContext *avCodecContext = nullptr;    // 音频 视频 都需要的 解码器上下文
+
+    JNICallbakcHelper *jniCallbakcHelper = nullptr ;
+    void setJNICallbakcHelper(JNICallbakcHelper *jniCallbakcHelper1){
+        this->jniCallbakcHelper = jniCallbakcHelper1 ;
+    }
+
+
+
     BaseChannel(int stream_index, AVCodecContext *avCodecContext, AVRational time_base) :
             stream_index(stream_index), avCodecContext(avCodecContext) , time_base(time_base){
         packets.setReleaseCallback(releaseAVPacket); // 给队列设置Callback，Callback释放队列里面的数据

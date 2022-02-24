@@ -60,7 +60,7 @@ public:
 
     // double *getDoubleTime();
 
-    double audio_time= 0; //  音视频同步
+    double audio_time; //  音视频同步
 };
 
 

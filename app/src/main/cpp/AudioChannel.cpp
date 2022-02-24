@@ -248,9 +248,12 @@ int AudioChannel::getPCM() {
                 (const uint8_t **) frame->data, frame->nb_samples);
         pcm_data_size = samples_per_channel * out_sample_size * out_channels;
 
-        audio_time = frame->best_effort_timestamp;
+        audio_time = frame->best_effort_timestamp*av_q2d(time_base);
         // LOGI("audio_time1:%d", audio_time) ;
         // LOGI("audio_time:%d, best_effort_timestamp:%d", audio_time, frame->best_effort_timestamp ) ;
+        if (jniCallbakcHelper){
+            jniCallbakcHelper->onSeek(THREAD_CHILD, audio_time) ;
+        }
         break;
 
     }

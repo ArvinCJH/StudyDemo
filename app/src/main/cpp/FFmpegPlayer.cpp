@@ -11,6 +11,7 @@ FFmpegPlayer::FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper) {
     //  因为在 native-lib.cpp 文件中有释放的操作，为了避免还需要使用时已经被释放，拷贝一份
     strcpy(this->data_source, data_source);
     this->helper = helper;
+    pthread_mutex_init(&seek_mutex, nullptr);
 }
 
 FFmpegPlayer::~FFmpegPlayer() {
@@ -23,6 +24,7 @@ FFmpegPlayer::~FFmpegPlayer() {
         delete helper;
         helper = nullptr;
     }
+    pthread_mutex_destroy(&seek_mutex);
 }
 
 
@@ -103,6 +105,10 @@ void FFmpegPlayer::prepare_() {
         return;
     }
 
+    duration = formatContext->duration / AV_TIME_BASE;
+
+    AVCodecContext *avCodecContext = nullptr;
+
     // 根据流信息, 流的个数,用循环来找编解码器
     for (int i = 0; i < formatContext->nb_streams; ++i) {
         //  获取媒体流（视频/音频）
@@ -120,7 +126,7 @@ void FFmpegPlayer::prepare_() {
             return;
         }
         //  4. 获取编解码器上下文
-        AVCodecContext *avCodecContext = avcodec_alloc_context3(codec);
+        avCodecContext = avcodec_alloc_context3(codec);
         if (!avCodecContext) {
             onError(FFMPEG_ALLOC_CODEC_CONTEXT_FAIL);
             LOGE("获取编解码器上下文失败");
@@ -128,8 +134,8 @@ void FFmpegPlayer::prepare_() {
         }
 
         //  add self
-        // avCodecContext->channel_layout = select_channel_layout(codec);
-        // avCodecContext->sample_rate = select_sample_rate(codec);
+        avCodecContext->channel_layout = select_channel_layout(codec);
+        avCodecContext->sample_rate = select_sample_rate(codec);
 
         //  5. 设置解码器上下文的参数
 
@@ -162,6 +168,9 @@ void FFmpegPlayer::prepare_() {
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
             //  音频包
             audio_channel = new AudioChannel(i, avCodecContext, time_base);
+            if (0 != duration) {
+                audio_channel->setJNICallbakcHelper(helper);
+            }
         } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
             if (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) {
                 continue;
@@ -266,43 +275,103 @@ void FFmpegPlayer::setRenderCallback(RenderCallback renderCallback) {
     this->renderCallback = renderCallback;
 }
 
+long FFmpegPlayer::getDuration() {
+    return duration;
+}
 
-// /* select layout with the highest channel count */
-// uint64_t FFmpegPlayer::select_channel_layout(const AVCodec *codec) {
-//     const uint64_t *p;
-//     uint64_t best_ch_layout = 0;
-//     int best_nb_channels = 0;
-//
-//     if (!codec->channel_layouts)
-//         return AV_CH_LAYOUT_STEREO;
-//
-//     p = codec->channel_layouts;
-//     while (*p) {
-//         int nb_channels = av_get_channel_layout_nb_channels(*p);
-//
-//         if (nb_channels > best_nb_channels) {
-//             best_ch_layout = *p;
-//             best_nb_channels = nb_channels;
-//         }
-//         p++;
-//     }
-//     return best_ch_layout;
-// }
-//
-//
-// /* just pick the highest supported samplerate */
-// uint64_t FFmpegPlayer::select_sample_rate(const AVCodec *codec) {
-//     const int *p;
-//     int best_samplerate = 0;
-//
-//     if (!codec->supported_samplerates)
-//         return 44100;
-//
-//     p = codec->supported_samplerates;
-//     while (*p) {
-//         if (!best_samplerate || abs(44100 - *p) < abs(44100 - best_samplerate))
-//             best_samplerate = *p;
-//         p++;
-//     }
-//     return best_samplerate;
-// }
+void FFmpegPlayer::seek(int progress) {
+    if (progress < 0 || progress > duration) {
+        return;
+    }
+    if (!audio_channel && !video_channel) {
+        return;
+    }
+    if (!formatContext) {
+        return;
+    }
+
+    pthread_mutex_lock(&seek_mutex);
+
+    int result_code = av_seek_frame(formatContext, -1, progress * AV_TIME_BASE, AVSEEK_FLAG_FRAME);
+    if (result_code < 0) {
+        pthread_mutex_unlock(&seek_mutex);
+        return;
+    }
+
+
+    if (audio_channel) {
+        audio_channel->packets.setWork(0);
+        audio_channel->frames.setWork(0);
+        audio_channel->packets.clear();
+        audio_channel->frames.clear();
+        audio_channel->packets.setWork(1);
+        audio_channel->frames.setWork(1);
+    }
+    if (video_channel) {
+        video_channel->packets.setWork(0);
+        video_channel->frames.setWork(0);
+        video_channel->packets.clear();
+        video_channel->frames.clear();
+        video_channel->packets.setWork(1);
+        video_channel->frames.setWork(1);
+    }
+    pthread_mutex_unlock(&seek_mutex);
+
+}
+
+
+/* select layout with the highest channel count */
+uint64_t FFmpegPlayer::select_channel_layout(const AVCodec *codec) {
+    const uint64_t *p;
+    uint64_t best_ch_layout = 0;
+    int best_nb_channels = 0;
+
+    if (!codec->channel_layouts)
+        return AV_CH_LAYOUT_STEREO;
+
+    p = codec->channel_layouts;
+    while (*p) {
+        int nb_channels = av_get_channel_layout_nb_channels(*p);
+
+        if (nb_channels > best_nb_channels) {
+            best_ch_layout = *p;
+            best_nb_channels = nb_channels;
+        }
+        p++;
+    }
+    return best_ch_layout;
+}
+
+
+/* just pick the highest supported samplerate */
+uint64_t FFmpegPlayer::select_sample_rate(const AVCodec *codec) {
+    const int *p;
+    int best_samplerate = 0;
+
+    if (!codec->supported_samplerates)
+        return 44100;
+
+    p = codec->supported_samplerates;
+    while (*p) {
+        if (!best_samplerate || abs(44100 - *p) < abs(44100 - best_samplerate))
+            best_samplerate = *p;
+        p++;
+    }
+    return best_samplerate;
+}
+
+void *task_stop(void *args) {
+    auto player = static_cast<FFmpegPlayer *>(args);
+    player->stop_(player);
+    return nullptr;
+}
+
+void FFmpegPlayer::stop() {
+    pthread_create(&pid_stop, nullptr, task_stop, this);
+
+
+}
+
+void FFmpegPlayer::stop_(FFmpegPlayer *) {
+    isPlaying = false;
+}

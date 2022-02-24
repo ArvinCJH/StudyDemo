@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.SurfaceView;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -19,11 +20,14 @@ import java.util.Arrays;
 
 import top.newjourney.video.databinding.ActivityMainBinding;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener{
     private FFmpegPlayer videoPlayer;
 
     private ActivityMainBinding binding;
     // private SurfaceView surfaceView ;
+    TextView tvTime ;
+    private boolean isTouch ;
+    private int duration ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,21 +40,32 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tvState = binding.tvState;
         SurfaceView surfaceView = binding.surfaceView;
-        TextView tvTime = binding.tvTime;
+        tvTime = binding.tvTime;
         SeekBar seekBar = binding.seekBar;
+        seekBar.setOnSeekBarChangeListener(this);
 
         videoPlayer = new FFmpegPlayer();
         videoPlayer.setSurfaceView(surfaceView);
         videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "chengdu.mp4")
         // videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "demo.mp4")
                 .getAbsolutePath());
+
+
         videoPlayer.setOnPreparedListener(new FFmpegPlayer.OnPreparedListener() {
             @Override
             public void onPreapared() {
                 Log.d("TAG", "onPreapared-----------------");
+                duration = videoPlayer.getDuration() ;
+
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (0!=duration){
+                            setTvTime(0);
+                            tvTime.setVisibility(View.VISIBLE);
+                            seekBar.setVisibility(View.VISIBLE);
+                        }
+
                         tvState.setText("onPreapared---------finish--------");
                     }
                 });
@@ -67,8 +82,38 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+
+        videoPlayer.setOnProgressListener(new FFmpegPlayer.OnProgressListener() {
+            @Override
+            public void onProgress(int progress) {
+                if (!isTouch){
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (duration!=0){
+                                setTvTime(progress);
+                                seekBar.setProgress(progress*100/duration);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
         tvState.setText(videoPlayer.stringFromJNI());
         checkPermission();
+    }
+
+    void setTvTime(int n_time){
+        tvTime.setText(getString(R.string.time_duration, getMinutes(n_time), getSeconds(n_time), getMinutes(duration), getSeconds(duration)));
+    }
+
+    int getMinutes(int duration){
+
+        return duration/60 ;
+    }
+    int getSeconds(int duration){
+        return duration%60 ;
     }
 
     final int REQUEST_CODE_CONTACT = 101;
@@ -120,5 +165,25 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         videoPlayer.release();
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        if (fromUser){
+            setTvTime(progress*duration/100);
+        }
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+isTouch = true ;
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
+isTouch = false ;
+int seekBarProgress = seekBar.getProgress() ;
+int playProgress = seekBarProgress*duration/100 ;
+videoPlayer.seek(playProgress) ;
     }
 }

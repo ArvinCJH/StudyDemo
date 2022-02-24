@@ -212,21 +212,21 @@ void VideoChannel::video_play() {
         double time_diff = video_time - audio_time;
         if (time_diff > 0) {
             if (time_diff > 1) {
+                LOGI("continue========= >1") ;
                 av_usleep(real_delay * 2 * 1000000);
             } else {
+                LOGI("continue========= >0") ;
                 av_usleep((real_delay + time_diff) * 1000000);
             }
         } else if (time_diff < 0) {
             if (fabs(time_diff) <= 0.05) {
-                // LOGI("continue=========frames.sync(),%d, %d", video_time, audio_time);e
+                LOGI("continue========= <= 0.05") ;
                 frames.sync();
                 continue;
             }
         } else {
             LOGI("百分百同步了, impossibility!!!");
         }
-
-        LOGI("continue=========video_time:%d, audio_time:%d, time_diff:%d", video_time, audio_time, time_diff);
 
         renderCallback(dst_data[0], avCodecContext->width, avCodecContext->height, dst_linesize[0]);
 

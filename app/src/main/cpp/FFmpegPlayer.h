@@ -33,11 +33,16 @@ private:
     JNICallbakcHelper *helper = nullptr;
     bool isPlaying;
 
-    void onError(int error_code) ;
+    void onError(int error_code);
 
     RenderCallback renderCallback;
-    // uint64_t select_channel_layout(const AVCodec *codec) ;  //  获取最大 channel
-    // uint64_t select_sample_rate(const AVCodec *codec);      //  获取最大 rate
+
+    uint64_t select_channel_layout(const AVCodec *codec) ;  //  获取最大 channel
+    uint64_t select_sample_rate(const AVCodec *codec);      //  获取最大 rate
+
+    long duration;
+    pthread_mutex_t seek_mutex;
+    pthread_t pid_stop;
 
 public:
     FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper);
@@ -52,7 +57,16 @@ public:
 
     void start_();
 
-    void setRenderCallback(RenderCallback renderCallback) ;
+    void setRenderCallback(RenderCallback renderCallback);
+
+    long getDuration();
+
+    void seek(int play_value);
+
+    void stop();
+
+    void stop_(FFmpegPlayer *);
+
 };
 
 

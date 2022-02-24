@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 public class FFmpegPlayer implements SurfaceHolder.Callback {
     // C++层准备情况的接口
     private OnPreparedListener onPreparedListener;
+    private OnProgressListener onProgressListener;
 
     private SurfaceHolder surfaceHolder;
 
@@ -86,6 +87,19 @@ public class FFmpegPlayer implements SurfaceHolder.Callback {
     /**
      * 给jni反射调用的
      */
+    public void onProgressListener(int progress) {
+        if (null != onProgressListener) {
+            onProgressListener.onProgress(progress);
+        }
+    }
+
+    public void setOnProgressListener(OnProgressListener onProgressListener) {
+        this.onProgressListener = onProgressListener;
+    }
+
+    /**
+     * 给jni反射调用的
+     */
     private void onError(int errorCode) {
         onPreparedListener.onError(errorCode);
     }
@@ -105,10 +119,24 @@ public class FFmpegPlayer implements SurfaceHolder.Callback {
 
     }
 
+    public void seek(int playProgress) {
+        seekNative(playProgress);
+    }
+
+    public int getDuration() {
+        return getDurationNative();
+    }
+
+
     interface OnPreparedListener {
         void onPreapared();
 
         void onError(int errorCode);
+    }
+
+
+    interface OnProgressListener {
+        void onProgress(int progress);
     }
 
 
@@ -126,6 +154,11 @@ public class FFmpegPlayer implements SurfaceHolder.Callback {
 
     // 设置播放窗口
     private native void setSurfaceNative(Surface surface);
+
+
+    private native void seekNative(int playProgress);
+
+    private native int getDurationNative();
     //endregion
 
 }

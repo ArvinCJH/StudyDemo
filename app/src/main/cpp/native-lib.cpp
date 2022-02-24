@@ -118,3 +118,22 @@ Java_top_newjourney_video_FFmpegPlayer_setSurfaceNative(JNIEnv *env, jobject thi
     window = ANativeWindow_fromSurface(env, surface);
     pthread_mutex_unlock(&mutex);
 }
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_top_newjourney_video_FFmpegPlayer_seekNative(JNIEnv *env, jobject thiz, jint play_progress) {
+    if (player){
+        player->seek(play_progress) ;
+    }
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_top_newjourney_video_FFmpegPlayer_getDurationNative(JNIEnv *env, jobject thiz) {
+
+    if (player){
+        return player->getDuration();
+    }
+    return 0 ;
+
+}

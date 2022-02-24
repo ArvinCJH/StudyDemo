@@ -15,6 +15,8 @@ private:
     jobject jobj;
     jmethodID jmd_prepared;
     jmethodID jmd_error;
+    // 播放音频的时间戳回调
+    jmethodID jmd_seek;
 
 public:
     JNICallbakcHelper(JavaVM *vm, JNIEnv *env, jobject jobj);
@@ -23,6 +25,7 @@ public:
 
     void onPrepared(int thread_mode);
     void onError(int thread_mode, int error_code);
+    void onSeek(int thread_mode, int seek_progress);
 };
 
 
