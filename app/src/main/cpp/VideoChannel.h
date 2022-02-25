@@ -26,11 +26,11 @@ private:
 
     RenderCallback renderCallback;
 
-    int fps ;
-    AudioChannel *audio_channel = nullptr ;
+    double fps;
+    AudioChannel *audio_channel = nullptr;
 
 public:
-    VideoChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base, int fps);
+    VideoChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base, double fps);
 
     ~VideoChannel();
 
@@ -46,7 +46,7 @@ public:
     //  回调给 player 处理
     void setRenderCallback(RenderCallback callback);
 
-    void setAudioChannel(AudioChannel *audio_channel) ;
+    void setAudioChannel(AudioChannel *audio_channel);
 
 };
 

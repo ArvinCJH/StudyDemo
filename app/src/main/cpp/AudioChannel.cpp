@@ -28,6 +28,35 @@ void AudioChannel::start() {
 
 void AudioChannel::stop() {
     isPlaying = false;
+    packets.setWork(0);
+    frames.setWork(0);
+
+    pthread_join(pid_audio_decode, nullptr);
+    pthread_join(pid_audio_play, nullptr);
+
+    if (bqPlayerPlay) {
+        (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
+        bqPlayerPlay = nullptr;
+    }
+
+    if (bqPlayerObject) {
+        (*bqPlayerObject)->Destroy(bqPlayerObject);
+        bqPlayerObject = nullptr;
+        bqPlayerBufferQueue = nullptr;
+    }
+    if (outputMixObject) {
+        (*outputMixObject)->Destroy(outputMixObject);
+        outputMixObject = nullptr;
+    }
+    if (engineObject) {
+        (*engineObject)->Destroy(engineObject);
+        engineObject = nullptr;
+        engineItf = nullptr;
+    }
+
+    // packets.clear();
+    // frames.clear();
+
 }
 
 AudioChannel::AudioChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base) :
@@ -61,7 +90,11 @@ AudioChannel::AudioChannel(int stream_index, AVCodecContext *codecContext, AVRat
 }
 
 AudioChannel::~AudioChannel() {
-
+    if (swr_ctx) {
+        swr_free(&swr_ctx);
+        swr_ctx = nullptr;
+    }
+    DELETE(out_buffers);
 }
 
 
@@ -107,7 +140,7 @@ void AudioChannel::audio_decode() {
     releaseAVPacket(&pkt);
 }
 
-void bdPlayerCallback(SLAndroidSimpleBufferQueueItf queueItf, void *args) {
+void bqPlayerCallback(SLAndroidSimpleBufferQueueItf queueItf, void *args) {
     auto *audio_channel = static_cast<AudioChannel *>(args);
     int pcm_size = audio_channel->getPCM();
     (*queueItf)->Enqueue(queueItf, audio_channel->out_buffers, pcm_size);
@@ -174,7 +207,7 @@ void AudioChannel::audio_play() {
 
     result = (*engineItf)->CreateAudioPlayer(
             engineItf,
-            &bdPlayerObject,
+            &bqPlayerObject,
             &audio_src,
             &audioSnk,
             1,
@@ -188,33 +221,33 @@ void AudioChannel::audio_play() {
         return;
     }
 
-    result = (*bdPlayerObject)->Realize(bdPlayerObject, SL_BOOLEAN_FALSE);
+    result = (*bqPlayerObject)->Realize(bqPlayerObject, SL_BOOLEAN_FALSE);
     if (SL_RESULT_SUCCESS != result) {
         // create engine fail
-        LOGE("create bdPlayerObject Realize error");
+        LOGE("create bqPlayerObject Realize error");
         return;
     }
 
-    result = (*bdPlayerObject)->GetInterface(bdPlayerObject, SL_IID_PLAY, &bdPlayerPlay);
+    result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_PLAY, &bqPlayerPlay);
     if (SL_RESULT_SUCCESS != result) {
         // create engine fail
-        LOGE("create bdPlayerObject GetInterface SL_IID_PLAY error");
+        LOGE("create bqPlayerObject GetInterface SL_IID_PLAY error");
         return;
     }
 
-    result = (*bdPlayerObject)->GetInterface(bdPlayerObject, SL_IID_BUFFERQUEUE,
-                                             &bdPlayerBufferQueue);
+    result = (*bqPlayerObject)->GetInterface(bqPlayerObject, SL_IID_BUFFERQUEUE,
+                                             &bqPlayerBufferQueue);
     if (SL_RESULT_SUCCESS != result) {
         // create engine fail
-        LOGE("create bdPlayerObject GetInterface SL_IID_BUFFERQUEUE error");
+        LOGE("create bqPlayerObject GetInterface SL_IID_BUFFERQUEUE error");
         return;
     }
 
-    (*bdPlayerBufferQueue)->RegisterCallback(bdPlayerBufferQueue, bdPlayerCallback, this);
+    (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, bqPlayerCallback, this);
 
-    (*bdPlayerPlay)->SetPlayState(bdPlayerPlay, SL_PLAYSTATE_PLAYING);
+    (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
 
-    bdPlayerCallback(bdPlayerBufferQueue, this);
+    bqPlayerCallback(bqPlayerBufferQueue, this);
 
 }
 
@@ -234,7 +267,7 @@ int AudioChannel::getPCM() {
             continue;
         }
 
-        //  chong cai yang
+        //  开始重采样
 
         int dst_nb_samples = av_rescale_rnd(
                 swr_get_delay(swr_ctx, frame->sample_rate) + frame->nb_samples,
@@ -248,11 +281,11 @@ int AudioChannel::getPCM() {
                 (const uint8_t **) frame->data, frame->nb_samples);
         pcm_data_size = samples_per_channel * out_sample_size * out_channels;
 
-        audio_time = frame->best_effort_timestamp*av_q2d(time_base);
+        audio_time = frame->best_effort_timestamp * av_q2d(time_base);
         // LOGI("audio_time1:%d", audio_time) ;
         // LOGI("audio_time:%d, best_effort_timestamp:%d", audio_time, frame->best_effort_timestamp ) ;
-        if (jniCallbakcHelper){
-            jniCallbakcHelper->onSeek(THREAD_CHILD, audio_time) ;
+        if (jniCallbakcHelper) {
+            jniCallbakcHelper->onSeek(THREAD_CHILD, audio_time);
         }
         break;
 

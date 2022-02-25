@@ -25,12 +25,11 @@ public:
     //  原始包队列
     SafeQueue<AVFrame *> frames;
 
-
     bool isPlaying; // 音频 和 视频 都会有的标记 是否播放
 
-    AVRational time_base ;      //  音视频同步(时间单位)
-
     AVCodecContext *avCodecContext = nullptr;    // 音频 视频 都需要的 解码器上下文
+
+    AVRational time_base ;      //  音视频同步(时间单位)
 
     JNICallbakcHelper *jniCallbakcHelper = nullptr ;
     void setJNICallbakcHelper(JNICallbakcHelper *jniCallbakcHelper1){

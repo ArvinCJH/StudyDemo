@@ -21,7 +21,7 @@ private:
     // 2. 重采样与播放线程
     pthread_t pid_audio_play;
 
-    // double *audio_time; //  音视频同步
+
 public:
     AudioChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base);
 
@@ -52,13 +52,11 @@ public:
 
     SLObjectItf outputMixObject = 0;
 
-    SLObjectItf bdPlayerObject = 0;
+    SLObjectItf bqPlayerObject = 0;
 
-    SLPlayItf bdPlayerPlay = 0;
+    SLPlayItf bqPlayerPlay = 0;
 
-    SLAndroidSimpleBufferQueueItf bdPlayerBufferQueue = 0;
-
-    // double *getDoubleTime();
+    SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue = 0;
 
     double audio_time; //  音视频同步
 };

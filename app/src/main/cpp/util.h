@@ -5,12 +5,12 @@
 #ifndef MYSTUDYAPPLICATION_UTIL_H
 #define MYSTUDYAPPLICATION_UTIL_H
 
-#define THREAD_SLEEP_TIME 10*1000   //  10毫秒
-#define THREAD_SLEEP_COUNT 100
-
 #define THREAD_MAIN 1 // 主线程
 #define THREAD_CHILD 2 // 子线程
 
+
+#define THREAD_SLEEP_TIME 10*1000   //  10毫秒
+#define THREAD_SLEEP_COUNT 100
 
 
 
@@ -30,5 +30,7 @@
 // 没有音视频
 #define FFMPEG_NOMEDIA 8
 // 错误代码 >>>>>>>>>>>> end >>>>>>>>>>>>
+
+#define DELETE(object) if(object){delete object; object = 0 ;}
 
 #endif //MYSTUDYAPPLICATION_UTIL_H

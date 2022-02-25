@@ -15,7 +15,6 @@ FFmpegPlayer::FFmpegPlayer(const char *data_source, JNICallbakcHelper *helper) {
 }
 
 FFmpegPlayer::~FFmpegPlayer() {
-    isPlaying = false;
     if (data_source) {
         delete data_source;
         data_source = nullptr;
@@ -91,6 +90,7 @@ void FFmpegPlayer::prepare_() {
         LOGE("打开媒体格式失败, %s", av_err2str(resultCode));
         onError(FFMPEG_CAN_NOT_OPEN_URL);
 //        av_err2str(resultCode);// 根据你的返回值 得到错误详情
+        avformat_close_input(&formatContext);
         return;
     }
 
@@ -101,7 +101,8 @@ void FFmpegPlayer::prepare_() {
     if (resultCode < 0) {
         LOGE("查找媒体中的音/视频流的信息失败%s, ", av_err2str(resultCode));
         onError(FFMPEG_CAN_NOT_FIND_STREAMS);
-        av_err2str(resultCode);
+        // av_err2str(resultCode);
+        avformat_close_input(&formatContext);
         return;
     }
 
@@ -123,6 +124,7 @@ void FFmpegPlayer::prepare_() {
             LOGE("获取编解码器失败");
             onError(FFMPEG_FIND_DECODER_FAIL);
             resultCode = AVERROR(EINVAL);
+            avformat_close_input(&formatContext);
             return;
         }
         //  4. 获取编解码器上下文
@@ -130,6 +132,8 @@ void FFmpegPlayer::prepare_() {
         if (!avCodecContext) {
             onError(FFMPEG_ALLOC_CODEC_CONTEXT_FAIL);
             LOGE("获取编解码器上下文失败");
+            avcodec_free_context(&avCodecContext);
+            avformat_close_input(&formatContext);
             return;
         }
 
@@ -146,7 +150,9 @@ void FFmpegPlayer::prepare_() {
         if (resultCode < 0) {
             onError(FFMPEG_CODEC_CONTEXT_PARAMETERS_FAIL);
             LOGE("设置解码器上下文的参数失败%s, ", av_err2str(resultCode));
-            av_err2str(resultCode);
+            // av_err2str(resultCode);
+            avcodec_free_context(&avCodecContext);
+            avformat_close_input(&formatContext);
             return;
         }
 
@@ -158,7 +164,9 @@ void FFmpegPlayer::prepare_() {
         if (resultCode) {
             onError(FFMPEG_OPEN_DECODER_FAIL);
             LOGE("打开解码器失败%s, ", av_err2str(resultCode));
-            av_err2str(resultCode);
+            // av_err2str(resultCode);
+            avcodec_free_context(&avCodecContext);
+            avformat_close_input(&formatContext);
             return;
         }
 
@@ -177,11 +185,14 @@ void FFmpegPlayer::prepare_() {
             }
 
             AVRational fps_rational = stream->avg_frame_rate;
-            int fps = av_q2d(fps_rational);
+            double fps = av_q2d(fps_rational);
 
             //  视频包
             video_channel = new VideoChannel(i, avCodecContext, time_base, fps);
             video_channel->setRenderCallback(renderCallback);
+            if (0 != duration) {
+                video_channel->setJNICallbakcHelper(helper);
+            }
         }
     }
 
@@ -189,6 +200,10 @@ void FFmpegPlayer::prepare_() {
     if (!audio_channel && !video_channel) {
         onError(FFMPEG_NOMEDIA);
         LOGE("流中 没有音频 也没有 视频 ");
+        if (avCodecContext) {
+            avcodec_free_context(&avCodecContext);
+        }
+        avformat_close_input(&formatContext);
         return;
     }
 
@@ -202,8 +217,11 @@ void FFmpegPlayer::prepare_() {
 void FFmpegPlayer::start_() {
     while (isPlaying) {
         //  内存泄露 -------------> 控制 AVPacket 队列大小
-        if ((video_channel && video_channel->packets.size() > THREAD_SLEEP_COUNT) ||
-            (audio_channel && audio_channel->packets.size() > THREAD_SLEEP_COUNT)) {
+        if (video_channel && video_channel->packets.size() > THREAD_SLEEP_COUNT) {
+            av_usleep(THREAD_SLEEP_TIME);
+            continue;
+        }
+        if (audio_channel && audio_channel->packets.size() > THREAD_SLEEP_COUNT) {
             av_usleep(THREAD_SLEEP_TIME);
             continue;
         }
@@ -234,14 +252,13 @@ void FFmpegPlayer::start_() {
             }
 
 
-        } else if (resultCode == AVERROR_EOF) {
+        } else if (AVERROR_EOF == resultCode) {
             //  读到文件末尾了, 但是并不是播放完毕
             // LOGE("读到文件末尾了") ;
             //  内存泄露 -------------> 临时处理
-            // if(video_channel->packets.empty() && audio_channel->packets.empty()){
-            //     break;
-            // }
-            // break;
+            if (video_channel->packets.empty() && audio_channel->packets.empty()) {
+                break;
+            }
         } else {
             //  出现了其它错误，结束当前循环
             // LOGE("出现了其它错误，结束当前循环") ;
@@ -292,7 +309,8 @@ void FFmpegPlayer::seek(int progress) {
 
     pthread_mutex_lock(&seek_mutex);
 
-    int result_code = av_seek_frame(formatContext, -1, progress * AV_TIME_BASE, AVSEEK_FLAG_FRAME);
+    int result_code = av_seek_frame(formatContext, -1, progress * AV_TIME_BASE,
+                                    AVSEEK_FLAG_FRAME | AVSEEK_FLAG_BACKWARD);
     if (result_code < 0) {
         pthread_mutex_unlock(&seek_mutex);
         return;
@@ -367,11 +385,33 @@ void *task_stop(void *args) {
 }
 
 void FFmpegPlayer::stop() {
+
+    helper = nullptr;
+    if (audio_channel) {
+        audio_channel->jniCallbakcHelper = nullptr;
+    }
+    if (video_channel) {
+        video_channel->jniCallbakcHelper = nullptr;
+    }
+
     pthread_create(&pid_stop, nullptr, task_stop, this);
 
 
 }
 
-void FFmpegPlayer::stop_(FFmpegPlayer *) {
+void FFmpegPlayer::stop_(FFmpegPlayer *player) {
     isPlaying = false;
+
+    pthread_join(pid_prepare, nullptr);
+    pthread_join(pid_start, nullptr);
+
+    if (formatContext) {
+        avformat_close_input(&formatContext);
+        avformat_free_context(formatContext);
+        formatContext = nullptr;
+    }
+    DELETE(audio_channel);
+    DELETE(video_channel);
+    DELETE(player);
+
 }

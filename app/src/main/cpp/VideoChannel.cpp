@@ -10,7 +10,7 @@ void dropAVFrame(queue<AVFrame *> &q) {
         // LOGI("dropAVFrame:%d", q.size());
         AVFrame *frame = q.front();
         // if (AV_PKT_FLAG_KEY != frame->flags) {
-        av_frame_unref(frame);
+        // av_frame_unref(frame);
         BaseChannel::releaseAVFrame(&frame);
         q.pop();
         // }
@@ -26,7 +26,7 @@ void dropAVPacket(queue<AVPacket *> &q) {
         LOGI("dropAVPacket:%d", q.size());
         AVPacket *pkt = q.front();
         if (AV_PKT_FLAG_KEY != pkt->flags) {
-            av_packet_unref(pkt);
+            // av_packet_unref(pkt);
             BaseChannel::releaseAVPacket(&pkt);
             q.pop();
         } else {
@@ -38,13 +38,25 @@ void dropAVPacket(queue<AVPacket *> &q) {
 
 
 VideoChannel::VideoChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base,
-                           int fps) :
+                           double fps) :
         BaseChannel(stream_index, codecContext, time_base), fps(fps) {
     frames.setSyncCallback(dropAVFrame);
     packets.setSyncCallback(dropAVPacket);
 }
 
 VideoChannel::~VideoChannel() {
+    DELETE(audio_channel);
+
+}
+
+void VideoChannel::stop() {
+    isPlaying = false;
+    packets.setWork(0);
+    frames.setWork(0);
+
+    pthread_join(pid_video_decode, nullptr);
+    pthread_join(pid_video_play, nullptr);
+
 
 }
 
@@ -75,9 +87,6 @@ void VideoChannel::start() {
 
 }
 
-void VideoChannel::stop() {
-    isPlaying = false;
-}
 
 // 解包
 void VideoChannel::video_decode() {
@@ -115,10 +124,10 @@ void VideoChannel::video_decode() {
         AVFrame *frame = av_frame_alloc();
         // avcodec_receive_frame(AVCodecContext *avctx, AVFrame *frame)
         result_code = avcodec_receive_frame(avCodecContext, frame);
-        if (result_code == AVERROR(EAGAIN)) {
+        if (AVERROR(EAGAIN) == result_code) {
             // 获取失败, 可能只是没有拿到需要的包, 不是重大错误, 继续进行下一次获取
             continue;
-        } else if (result_code != 0) {
+        } else if (0 != result_code) {
 
             //  内存泄露 -------------> 获取缓冲区的原始包错误,释放  AVFrame
             LOGE("获取缓冲区的原始包错误,%s", av_err2str(result_code));
@@ -199,28 +208,28 @@ void VideoChannel::video_play() {
                   dst_data, dst_linesize
         );
         // 音视频同步
-        double extra_delay = frame->repeat_pict / (2 * fps);
-        double fps_delay = 1.0 / fps;
-        double real_delay = extra_delay + fps_delay;
+        extra_delay = frame->repeat_pict / (2 * fps);
+        fps_delay = 1.0 / fps;
+        real_delay = extra_delay + fps_delay;
 
-        double video_time = frame->best_effort_timestamp * av_q2d(time_base);
+        video_time = frame->best_effort_timestamp * av_q2d(time_base);
 
         // LOGI("video_time2:%d", video_time) ;
-        double audio_time = audio_channel->audio_time;
+        audio_time = audio_channel->audio_time;
 
         //  差值
-        double time_diff = video_time - audio_time;
+        time_diff = video_time - audio_time;
         if (time_diff > 0) {
             if (time_diff > 1) {
-                LOGI("continue========= >1") ;
+                LOGI("continue========= >1");
                 av_usleep(real_delay * 2 * 1000000);
             } else {
-                LOGI("continue========= >0") ;
+                LOGI("continue========= >0");
                 av_usleep((real_delay + time_diff) * 1000000);
             }
         } else if (time_diff < 0) {
             if (fabs(time_diff) <= 0.05) {
-                LOGI("continue========= <= 0.05") ;
+                LOGI("continue========= <= 0.05");
                 frames.sync();
                 continue;
             }
