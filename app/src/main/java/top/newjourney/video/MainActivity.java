@@ -3,6 +3,8 @@ package top.newjourney.video;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,16 +20,17 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 
+import top.newjourney.video.customview.ColorTrackTextView;
 import top.newjourney.video.databinding.ActivityMainBinding;
 
-public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener{
+public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBarChangeListener {
     private FFmpegPlayer videoPlayer;
 
     private ActivityMainBinding binding;
     // private SurfaceView surfaceView ;
-    TextView tvTime ;
-    private boolean isTouch ;
-    private int duration ;
+    TextView tvTime;
+    private boolean isTouch;
+    private int duration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         videoPlayer = new FFmpegPlayer();
         videoPlayer.setSurfaceView(surfaceView);
         videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "chengdu.mp4")
-        // videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "demo.mp4")
+                // videoPlayer.setDataSource(new File(Environment.getExternalStorageDirectory() + File.separator + "demo.mp4")
                 .getAbsolutePath());
 
 
@@ -55,12 +58,12 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
             @Override
             public void onPreapared() {
                 Log.d("TAG", "onPreapared-----------------");
-                duration = videoPlayer.getDuration() ;
+                duration = videoPlayer.getDuration();
 
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        if (0!=duration){
+                        if (0 != duration) {
                             setTvTime(0);
                             tvTime.setVisibility(View.VISIBLE);
                             seekBar.setVisibility(View.VISIBLE);
@@ -77,7 +80,7 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        tvState.setText(errorCode+"");
+                        tvState.setText(errorCode + "");
                     }
                 });
             }
@@ -86,13 +89,13 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         videoPlayer.setOnProgressListener(new FFmpegPlayer.OnProgressListener() {
             @Override
             public void onProgress(int progress) {
-                if (!isTouch){
+                if (!isTouch) {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            if (duration!=0){
+                            if (duration != 0) {
                                 setTvTime(progress);
-                                seekBar.setProgress(progress*100/duration);
+                                seekBar.setProgress(progress * 100 / duration);
                             }
                         }
                     });
@@ -104,16 +107,17 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
         checkPermission();
     }
 
-    void setTvTime(int n_time){
+    void setTvTime(int n_time) {
         tvTime.setText(getString(R.string.time_duration, getMinutes(n_time), getSeconds(n_time), getMinutes(duration), getSeconds(duration)));
     }
 
-    int getMinutes(int duration){
+    int getMinutes(int duration) {
 
-        return duration/60 ;
+        return duration / 60;
     }
-    int getSeconds(int duration){
-        return duration%60 ;
+
+    int getSeconds(int duration) {
+        return duration % 60;
     }
 
     final int REQUEST_CODE_CONTACT = 101;
@@ -169,21 +173,22 @@ public class MainActivity extends AppCompatActivity implements SeekBar.OnSeekBar
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        if (fromUser){
-            setTvTime(progress*duration/100);
+        if (fromUser) {
+            setTvTime(progress * duration / 100);
         }
     }
 
     @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
-isTouch = true ;
+        isTouch = true;
     }
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-isTouch = false ;
-int seekBarProgress = seekBar.getProgress() ;
-int playProgress = seekBarProgress*duration/100 ;
-videoPlayer.seek(playProgress) ;
+        isTouch = false;
+        int seekBarProgress = seekBar.getProgress();
+        int playProgress = seekBarProgress * duration / 100;
+        videoPlayer.seek(playProgress);
     }
+
 }
